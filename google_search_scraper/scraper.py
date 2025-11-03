@@ -1,14 +1,32 @@
 """
-Core scraper functionality for google-search-scraper
+Core scraper functionality for google-search-scraper with content extraction
 """
 
 from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
+from playwright.async_api import async_playwright
+import asyncio
 import time
 import random
 from typing import List, Optional, Dict
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
+from bs4 import BeautifulSoup
+import re
 
 from .exceptions import GoogleSearchError, RateLimitError, BrowserError, SearchTimeoutError
+
+
+@dataclass
+class PageContent:
+    """Container for extracted page content"""
+    url: str
+    title: Optional[str]
+    content: str
+    word_count: int
+    error: Optional[str] = None
+    
+    def to_dict(self) -> Dict:
+        """Convert to dictionary"""
+        return asdict(self)
 
 
 @dataclass
@@ -20,13 +38,139 @@ class SearchResult:
     total_results: int
     search_time: float
     timestamp: float
+    contents: List[PageContent] = field(default_factory=list)
     
     def to_dict(self) -> Dict:
         """Convert to dictionary"""
-        return asdict(self)
+        result = asdict(self)
+        result['contents'] = [content.to_dict() for content in self.contents]
+        return result
     
     def __repr__(self) -> str:
-        return f"SearchResult(query='{self.query}', urls={len(self.urls)}, time={self.search_time:.2f}s)"
+        content_info = f", contents={len(self.contents)}" if self.contents else ""
+        return f"SearchResult(query='{self.query}', urls={len(self.urls)}{content_info}, time={self.search_time:.2f}s)"
+
+
+def clean_text_content(html_content: str) -> str:
+    """Extract clean text content from HTML, removing unnecessary elements"""
+    try:
+        soup = BeautifulSoup(html_content, 'html.parser')
+        
+        # Remove script, style, nav, footer, header, aside, and other non-content elements
+        for element in soup(['script', 'style', 'nav', 'footer', 'header', 
+                            'aside', 'iframe', 'noscript', 'button', 'form']):
+            element.decompose()
+        
+        # Remove comments
+        for comment in soup.find_all(string=lambda text: isinstance(text, str) and text.strip().startswith('<!--')):
+            comment.extract()
+        
+        # Try to find main content areas
+        main_content = None
+        content_selectors = [
+            'main', 'article', '[role="main"]', 
+            '.content', '.main-content', '#content', '#main',
+            '.post-content', '.entry-content', '.article-content'
+        ]
+        
+        for selector in content_selectors:
+            main_content = soup.select_one(selector)
+            if main_content:
+                break
+        
+        # If no main content found, use body
+        if not main_content:
+            main_content = soup.find('body') or soup
+        
+        # Extract text
+        text = main_content.get_text(separator='\n', strip=True)
+        
+        # Clean up whitespace
+        lines = [line.strip() for line in text.split('\n')]
+        lines = [line for line in lines if line and len(line) > 3]  # Remove very short lines
+        
+        # Join and clean
+        cleaned_text = '\n'.join(lines)
+        
+        # Remove excessive newlines
+        cleaned_text = re.sub(r'\n{3,}', '\n\n', cleaned_text)
+        
+        return cleaned_text.strip()
+    
+    except Exception as e:
+        return f"Error cleaning content: {str(e)}"
+
+
+async def extract_page_content_async(url: str, timeout: int = 30000) -> PageContent:
+    """Asynchronously extract content from a single URL"""
+    try:
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(
+                headless=True,
+                args=['--disable-blink-features=AutomationControlled', '--no-sandbox']
+            )
+            
+            context = await browser.new_context(
+                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+            )
+            
+            page = await context.new_page()
+            
+            try:
+                # Navigate to page
+                await page.goto(url, wait_until='domcontentloaded', timeout=timeout)
+                await page.wait_for_timeout(1000)  # Wait 1 second for dynamic content
+                
+                # Get title
+                title = await page.title()
+                
+                # Get page content
+                html_content = await page.content()
+                
+                # Clean the content
+                cleaned_content = clean_text_content(html_content)
+                
+                # Count words
+                word_count = len(cleaned_content.split())
+                
+                await context.close()
+                await browser.close()
+                
+                return PageContent(
+                    url=url,
+                    title=title,
+                    content=cleaned_content,
+                    word_count=word_count,
+                    error=None
+                )
+                
+            except Exception as e:
+                await context.close()
+                await browser.close()
+                
+                return PageContent(
+                    url=url,
+                    title=None,
+                    content="",
+                    word_count=0,
+                    error=f"Failed to extract content: {str(e)}"
+                )
+    
+    except Exception as e:
+        return PageContent(
+            url=url,
+            title=None,
+            content="",
+            word_count=0,
+            error=f"Browser error: {str(e)}"
+        )
+
+
+async def extract_all_contents_async(urls: List[str], timeout: int = 30000) -> List[PageContent]:
+    """Extract content from multiple URLs concurrently"""
+    tasks = [extract_page_content_async(url, timeout) for url in urls]
+    contents = await asyncio.gather(*tasks)
+    return contents
 
 
 class GoogleSearchScraper:
@@ -38,7 +182,8 @@ class GoogleSearchScraper:
         timeout: int = 30000,
         headless: bool = True,
         stealth_mode: bool = True,
-        user_agent: Optional[str] = None
+        user_agent: Optional[str] = None,
+        extract_content: bool = False
     ):
         """
         Initialize the scraper
@@ -49,11 +194,13 @@ class GoogleSearchScraper:
             headless: Run browser in headless mode (default: True)
             stealth_mode: Enable stealth features to avoid detection (default: True)
             user_agent: Custom user agent string (default: None, uses realistic UA)
+            extract_content: Extract page content from each URL (default: False)
         """
         self.max_results = max_results
         self.timeout = timeout
         self.headless = headless
         self.stealth_mode = stealth_mode
+        self.extract_content = extract_content
         self.user_agent = user_agent or (
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
             '(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
@@ -204,7 +351,7 @@ class GoogleSearchScraper:
             extract_answer: Whether to extract Google's direct answer (default: True)
         
         Returns:
-            SearchResult object containing answer and URLs
+            SearchResult object containing answer, URLs, and optionally page contents
         
         Raises:
             GoogleSearchError: Base exception for all errors
@@ -261,6 +408,16 @@ class GoogleSearchScraper:
                 answer = self._extract_answer(page) if extract_answer else None
                 urls = self._extract_urls(page)
                 
+                context.close()
+                browser.close()
+                
+                # Extract content from pages if enabled
+                contents = []
+                if self.extract_content and urls:
+                    print(f"\nExtracting content from {len(urls)} pages...")
+                    contents = asyncio.run(extract_all_contents_async(urls, self.timeout))
+                    print(f"✓ Content extraction complete!")
+                
                 search_time = time.time() - start_time
                 
                 return SearchResult(
@@ -269,7 +426,8 @@ class GoogleSearchScraper:
                     urls=urls,
                     total_results=len(urls),
                     search_time=search_time,
-                    timestamp=time.time()
+                    timestamp=time.time(),
+                    contents=contents
                 )
                 
             except PlaywrightTimeoutError as e:
@@ -279,14 +437,18 @@ class GoogleSearchScraper:
             except Exception as e:
                 raise GoogleSearchError(f"Search failed: {e}")
             finally:
-                context.close()
-                browser.close()
+                try:
+                    context.close()
+                    browser.close()
+                except:
+                    pass
 
 
 def search(
     query: str,
     max_results: int = 10,
     extract_answer: bool = True,
+    extract_content: bool = False,
     headless: bool = True,
     timeout: int = 30000
 ) -> SearchResult:
@@ -297,6 +459,7 @@ def search(
         query: Search query string
         max_results: Maximum number of URLs to return (default: 10)
         extract_answer: Whether to extract Google's direct answer (default: True)
+        extract_content: Whether to extract page content from URLs (default: False)
         headless: Run browser in headless mode (default: True)
         timeout: Page load timeout in milliseconds (default: 30000)
     
@@ -308,12 +471,17 @@ def search(
         >>> results = search("python tutorial", max_results=5)
         >>> print(results.urls)
         ['https://docs.python.org/3/tutorial/', ...]
+        
+        >>> # With content extraction
+        >>> results = search("python tutorial", max_results=3, extract_content=True)
+        >>> for content in results.contents:
+        >>>     print(f"{content.title}: {content.word_count} words")
     """
     scraper = GoogleSearchScraper(
         max_results=max_results,
         timeout=timeout,
         headless=headless,
-        stealth_mode=True
+        stealth_mode=True,
+        extract_content=extract_content
     )
     return scraper.search(query, extract_answer=extract_answer)
-

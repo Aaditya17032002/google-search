@@ -39,6 +39,22 @@ def print_results(result, format_type: str = 'text'):
     else:
         print("No URLs found")
     
+    # Display content if extracted
+    if result.contents:
+        print(f"\n📄 EXTRACTED CONTENT ({len(result.contents)} pages):")
+        print("-" * 70)
+        for i, content in enumerate(result.contents, 1):
+            if content.error:
+                print(f"\n{i}. {content.url}")
+                print(f"   ✗ Error: {content.error}")
+            else:
+                print(f"\n{i}. {content.title or 'No title'}")
+                print(f"   URL: {content.url}")
+                print(f"   Words: {content.word_count}")
+                if content.content:
+                    preview = content.content[:200] + ('...' if len(content.content) > 200 else '')
+                    print(f"   Preview: {preview}")
+    
     print("=" * 70)
 
 
@@ -96,6 +112,12 @@ Examples:
         '--no-answer',
         action='store_true',
         help='Skip extracting Google\'s direct answer'
+    )
+    
+    parser.add_argument(
+        '--extract-content',
+        action='store_true',
+        help='Extract page content from each URL (slower but more detailed)'
     )
     
     parser.add_argument(
@@ -162,6 +184,7 @@ Examples:
             query=query,
             max_results=args.max_results,
             extract_answer=not args.no_answer,
+            extract_content=args.extract_content,
             headless=not args.visible,
             timeout=args.timeout
         )
@@ -191,4 +214,3 @@ Examples:
 
 if __name__ == "__main__":
     main()
-

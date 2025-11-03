@@ -33,14 +33,14 @@ with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setup(
-    name="google-search-scraper",
+    name="google-search-aj",
     version="1.0.0",
-    author="Your Name",
-    author_email="your.email@example.com",
+    author="Aditya Jangam",
+    author_email="adityajangam25@gmail.com",
     description="Fast, lightweight Google search scraper with stealth mode",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/yourusername/google-search-scraper",
+    url="https://github.com/Aaditya17032002/google-search",
     packages=find_packages(),
     classifiers=[
         "Development Status :: 4 - Beta",
@@ -70,7 +70,9 @@ setup(
     },
     keywords='google search scraper web-scraping playwright automation',
     project_urls={
-        'Bug Reports': 'https://github.com/yourusername/google-search-scraper/issues',
-        'Source': 'https://github.com/yourusername/google-search-scraper',
+        'Homepage': 'https://github.com/Aaditya17032002/google-search',
+        'Bug Reports': 'https://github.com/Aaditya17032002/google-search/issues',
+        'Source': 'https://github.com/Aaditya17032002/google-search',
+        'Documentation': 'https://github.com/Aaditya17032002/google-search#readme',
     },
 )

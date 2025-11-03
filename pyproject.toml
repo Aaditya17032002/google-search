@@ -3,8 +3,8 @@ requires = ["setuptools>=45", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "google-search-python"
-version = "1.0.0"
+name = "google-search-aj"
+version = "1.0.1"
 description = "Fast, lightweight Google search scraper with stealth mode"
 readme = "README.md"
 requires-python = ">=3.8"
