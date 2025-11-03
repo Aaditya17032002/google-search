@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "google-search-aj"
-version = "1.0.1"
+version = "1.0.5"
 description = "Fast, lightweight Google search scraper with stealth mode"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -27,6 +27,7 @@ classifiers = [
 ]
 dependencies = [
     "playwright>=1.40.0",
+    "beautifulsoup4>=4.12.0",
 ]
 
 [project.optional-dependencies]

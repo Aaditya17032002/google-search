@@ -15,6 +15,9 @@ A fast, lightweight, and easy-to-use Python package for scraping Google search r
 - 🔧 **Flexible**: Highly configurable with sensible defaults
 - 💻 **CLI Support**: Use from command line or as a Python module
 - 🎨 **Multiple Output Formats**: JSON and text output supported
+- 📄 **Content Extraction**: Extract and analyze full page content from search results
+- 💾 **Auto-Save**: Automatically save results to file with full content
+- 🧹 **Clean Text**: Intelligent HTML parsing and text extraction
 
 ## 📦 Installation
 
@@ -48,6 +51,21 @@ print(results.answer)
 
 # Get more details
 print(f"Found {results.total_results} results in {results.search_time:.2f} seconds")
+
+# Extract full page content
+results = search("machine learning", max_results=3, extract_content=True)
+for content in results.contents:
+    print(f"{content.title}: {content.word_count} words")
+    print(f"Preview: {content.content[:200]}...")
+
+# Auto-save to file with content extraction
+results = search(
+    "python tutorial", 
+    extract_content=True, 
+    save_to_file=True,  # Auto-save enabled
+    output_file="search_results.txt"  # Custom filename
+)
+# Results automatically saved with full content!
 ```
 
 ### Command Line
@@ -93,7 +111,8 @@ scraper = GoogleSearchScraper(
     max_results=20,          # Get more results
     timeout=60000,           # Increase timeout
     headless=False,          # Show browser (for debugging)
-    stealth_mode=True        # Enable anti-detection (default)
+    stealth_mode=True,       # Enable anti-detection (default)
+    extract_content=True     # Extract page content
 )
 
 # Perform search
@@ -104,9 +123,42 @@ print(f"Query: {results.query}")
 print(f"Time: {results.search_time:.2f}s")
 print(f"Answer: {results.answer}")
 print(f"URLs: {len(results.urls)}")
+print(f"Content extracted: {len(results.contents)} pages")
 
 # Convert to dictionary
 data = results.to_dict()
+```
+
+### Content Extraction
+
+```python
+from google_search_scraper import search
+
+# Extract content from search results
+results = search("machine learning tutorial", max_results=5, extract_content=True)
+
+# Access extracted content
+for content in results.contents:
+    if not content.error:
+        print(f"\nTitle: {content.title}")
+        print(f"URL: {content.url}")
+        print(f"Word Count: {content.word_count:,}")
+        print(f"Content Preview: {content.content[:200]}...")
+    else:
+        print(f"Failed to extract: {content.url} - {content.error}")
+
+# Auto-save to file
+results = search(
+    "python web scraping",
+    extract_content=True,
+    save_to_file=True,  # Auto-save enabled
+    output_file="my_search.txt"
+)
+print(f"✓ Results saved with full content!")
+
+# Or save manually
+results = search("AI tutorial", extract_content=True)
+results.save_to_file("ai_results.txt")
 ```
 
 ### Multiple Searches
@@ -178,7 +230,7 @@ for result in all_results:
 
 ### Main Functions
 
-#### `search(query, max_results=10, extract_answer=True, headless=True, timeout=30000)`
+#### `search(query, max_results=10, extract_answer=True, extract_content=False, headless=True, timeout=30000, save_to_file=False, output_file="search_results.txt")`
 
 Convenience function for quick searches.
 
@@ -186,8 +238,11 @@ Convenience function for quick searches.
 - `query` (str): Search query string
 - `max_results` (int): Maximum URLs to return (default: 10)
 - `extract_answer` (bool): Extract Google's direct answer (default: True)
+- `extract_content` (bool): Extract page content from URLs (default: False)
 - `headless` (bool): Run browser in headless mode (default: True)
 - `timeout` (int): Page load timeout in milliseconds (default: 30000)
+- `save_to_file` (bool): Automatically save results to file (default: False)
+- `output_file` (str): Name of the output file (default: search_results.txt)
 
 **Returns:** `SearchResult` object
 
@@ -203,7 +258,8 @@ scraper = GoogleSearchScraper(
     timeout=30000,
     headless=True,
     stealth_mode=True,
-    user_agent=None
+    user_agent=None,
+    extract_content=False
 )
 ```
 
@@ -221,9 +277,22 @@ Container for search results.
 - `total_results` (int): Number of URLs returned
 - `search_time` (float): Time taken for search in seconds
 - `timestamp` (float): Unix timestamp of search
+- `contents` (List[PageContent]): Extracted page content (if extract_content=True)
 
 **Methods:**
 - `to_dict()`: Convert to dictionary
+- `save_to_file(filename="search_results.txt")`: Save results to text file with full content
+
+#### `PageContent`
+
+Container for extracted page content.
+
+**Attributes:**
+- `url` (str): The page URL
+- `title` (str | None): Page title
+- `content` (str): Extracted clean text content
+- `word_count` (int): Number of words in content
+- `error` (str | None): Error message if extraction failed
 
 ### Exceptions
 
@@ -292,8 +361,8 @@ While this package includes stealth features, Google continuously updates their 
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/google-search-scraper.git
-cd google-search-scraper
+git clone https://github.com/Aaditya17032002/google-search.git
+cd google-search
 
 # Create virtual environment
 python -m venv venv
@@ -342,10 +411,21 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 If you encounter any issues or have questions:
 
-- Open an issue on [GitHub](https://github.com/yourusername/google-search-scraper/issues)
+- Open an issue on [GitHub](https://github.com/Aaditya17032002/google-search/issues)
 - Check existing issues for solutions
 
 ## 🔄 Changelog
+
+### v1.0.4 (2024-11-03)
+- **Auto-save to file**: Save results with full content automatically
+- Manual save with `save_to_file()` method
+- Comprehensive file format with all data
+
+### v1.0.3 (2024-11-03)
+- **Content extraction**: Extract full page content from URLs
+- BeautifulSoup4 integration for HTML parsing
+- Async content extraction for better performance
+- PageContent dataclass with title, content, word count
 
 ### v1.0.0 (2024-11-03)
 - Initial release
@@ -354,6 +434,8 @@ If you encounter any issues or have questions:
 - CLI and Python API
 - Auto-installation of Playwright
 - JSON and text output formats
+
+See [CHANGELOG.md](CHANGELOG.md) for full version history.
 
 ---
 

@@ -49,6 +49,79 @@ class SearchResult:
     def __repr__(self) -> str:
         content_info = f", contents={len(self.contents)}" if self.contents else ""
         return f"SearchResult(query='{self.query}', urls={len(self.urls)}{content_info}, time={self.search_time:.2f}s)"
+    
+    def save_to_file(self, filename: str = "search_results.txt") -> str:
+        """
+        Save search results to a text file with full content
+        
+        Args:
+            filename: Name of the file to save (default: search_results.txt)
+            
+        Returns:
+            str: Path to the saved file
+        """
+        import time as time_module
+        
+        with open(filename, 'w', encoding='utf-8') as f:
+            # Header
+            f.write("=" * 100 + "\n")
+            f.write("GOOGLE SEARCH RESULTS WITH CONTENT EXTRACTION\n")
+            f.write("=" * 100 + "\n\n")
+            
+            # Query Info
+            f.write(f"Query: {self.query}\n")
+            f.write(f"Date: {time_module.strftime('%Y-%m-%d %H:%M:%S', time_module.localtime(self.timestamp))}\n")
+            f.write(f"Search Duration: {self.search_time:.2f}s\n")
+            f.write(f"Total URLs Found: {len(self.urls)}\n")
+            f.write(f"Content Extracted: {len(self.contents)} pages\n")
+            f.write("\n")
+            
+            # Google's Answer
+            if self.answer:
+                f.write("=" * 100 + "\n")
+                f.write("GOOGLE'S DIRECT ANSWER\n")
+                f.write("=" * 100 + "\n")
+                f.write(self.answer + "\n\n")
+            
+            # URLs List
+            f.write("=" * 100 + "\n")
+            f.write(f"ALL URLs ({len(self.urls)} results)\n")
+            f.write("=" * 100 + "\n")
+            for i, url in enumerate(self.urls, 1):
+                f.write(f"{i}. {url}\n")
+            f.write("\n")
+            
+            # Extracted Content
+            if self.contents:
+                f.write("=" * 100 + "\n")
+                f.write("EXTRACTED CONTENT FROM PAGES\n")
+                f.write("=" * 100 + "\n\n")
+                
+                for i, content in enumerate(self.contents, 1):
+                    f.write("\n" + "-" * 100 + "\n")
+                    f.write(f"PAGE {i} of {len(self.contents)}\n")
+                    f.write("-" * 100 + "\n\n")
+                    
+                    f.write(f"URL: {content.url}\n")
+                    f.write(f"Title: {content.title or 'N/A'}\n")
+                    f.write(f"Word Count: {content.word_count:,}\n\n")
+                    
+                    if content.error:
+                        f.write(f"ERROR: {content.error}\n")
+                    else:
+                        f.write("FULL CONTENT:\n")
+                        f.write("-" * 100 + "\n")
+                        f.write(content.content)
+                        f.write("\n" + "-" * 100 + "\n")
+                    
+                    f.write("\n")
+            
+            # Footer
+            f.write("\n" + "=" * 100 + "\n")
+            f.write("END OF RESULTS\n")
+            f.write("=" * 100 + "\n")
+        
+        return filename
 
 
 def clean_text_content(html_content: str) -> str:
@@ -415,7 +488,23 @@ class GoogleSearchScraper:
                 contents = []
                 if self.extract_content and urls:
                     print(f"\nExtracting content from {len(urls)} pages...")
-                    contents = asyncio.run(extract_all_contents_async(urls, self.timeout))
+                    try:
+                        # Try to get existing event loop
+                        loop = asyncio.get_event_loop()
+                        if loop.is_running():
+                            # If loop is running, use nest_asyncio or create new thread
+                            import concurrent.futures
+                            with concurrent.futures.ThreadPoolExecutor() as executor:
+                                future = executor.submit(asyncio.run, extract_all_contents_async(urls, self.timeout))
+                                contents = future.result()
+                        else:
+                            contents = loop.run_until_complete(extract_all_contents_async(urls, self.timeout))
+                    except RuntimeError:
+                        # Fallback: run in new event loop
+                        import concurrent.futures
+                        with concurrent.futures.ThreadPoolExecutor() as executor:
+                            future = executor.submit(asyncio.run, extract_all_contents_async(urls, self.timeout))
+                            contents = future.result()
                     print(f"✓ Content extraction complete!")
                 
                 search_time = time.time() - start_time
@@ -450,7 +539,9 @@ def search(
     extract_answer: bool = True,
     extract_content: bool = False,
     headless: bool = True,
-    timeout: int = 30000
+    timeout: int = 30000,
+    save_to_file: bool = False,
+    output_file: str = "search_results.txt"
 ) -> SearchResult:
     """
     Convenience function to perform a quick Google search
@@ -462,6 +553,8 @@ def search(
         extract_content: Whether to extract page content from URLs (default: False)
         headless: Run browser in headless mode (default: True)
         timeout: Page load timeout in milliseconds (default: 30000)
+        save_to_file: Automatically save results to file (default: False)
+        output_file: Name of the output file (default: search_results.txt)
     
     Returns:
         SearchResult object
@@ -476,6 +569,10 @@ def search(
         >>> results = search("python tutorial", max_results=3, extract_content=True)
         >>> for content in results.contents:
         >>>     print(f"{content.title}: {content.word_count} words")
+        
+        >>> # Auto-save to file
+        >>> results = search("python tutorial", extract_content=True, save_to_file=True)
+        >>> # Results automatically saved to search_results.txt
     """
     scraper = GoogleSearchScraper(
         max_results=max_results,
@@ -484,4 +581,11 @@ def search(
         stealth_mode=True,
         extract_content=extract_content
     )
-    return scraper.search(query, extract_answer=extract_answer)
+    result = scraper.search(query, extract_answer=extract_answer)
+    
+    # Auto-save if requested
+    if save_to_file:
+        saved_path = result.save_to_file(output_file)
+        print(f"\n✓ Results saved to: {saved_path}")
+    
+    return result

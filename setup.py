@@ -34,7 +34,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="google-search-aj",
-    version="1.0.0",
+    version="1.0.5",
     author="Aditya Jangam",
     author_email="adityajangam25@gmail.com",
     description="Fast, lightweight Google search scraper with stealth mode",
@@ -59,6 +59,7 @@ setup(
     python_requires=">=3.8",
     install_requires=[
         "playwright>=1.40.0",
+        "beautifulsoup4>=4.12.0",
     ],
     cmdclass={
         'install': PostInstallCommand,

@@ -43,6 +43,15 @@ print(results.urls)
 # Get more details
 print(f"Answer: {results.answer}")
 print(f"Found {results.total_results} results in {results.search_time:.2f}s")
+
+# With content extraction
+results = search("machine learning", extract_content=True)
+for content in results.contents:
+    print(f"{content.title}: {content.word_count} words")
+
+# Auto-save to file
+results = search("AI tutorial", extract_content=True, save_to_file=True)
+# Results automatically saved to search_results.txt
 ```
 
 ### Command Line
