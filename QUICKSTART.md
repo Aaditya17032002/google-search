@@ -28,7 +28,7 @@ google-search-scraper/
 ### Installation
 
 ```bash
-pip install google-search-scraper
+pip install google-search-aj
 ```
 
 ### Quick Usage

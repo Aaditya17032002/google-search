@@ -167,7 +167,7 @@ PageContent(
 The feature requires `beautifulsoup4` which is automatically installed:
 
 ```bash
-pip install google-search-scraper
+pip install google-search-aj
 ```
 
 All dependencies (playwright, beautifulsoup4) install automatically!

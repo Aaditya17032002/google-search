@@ -1,6 +1,6 @@
 # Google Search Scraper
 
-[![PyPI version](https://badge.fury.io/py/google-search-scraper.svg)](https://badge.fury.io/py/google-search-scraper)
+[![PyPI version](https://badge.fury.io/py/google-search-aj.svg)](https://badge.fury.io/py/google-search-aj)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 
@@ -22,7 +22,7 @@ A fast, lightweight, and easy-to-use Python package for scraping Google search r
 ## 📦 Installation
 
 ```bash
-pip install google-search-scraper
+pip install google-search-aj
 ```
 
 The package will automatically install Playwright and download the Chromium browser during installation.

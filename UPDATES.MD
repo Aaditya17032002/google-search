@@ -81,7 +81,7 @@ google-search "python tutorial" --extract-content
 ### Install (with new dependencies)
 
 ```bash
-pip install google-search-scraper
+pip install google-search-aj
 ```
 
 Automatically installs:

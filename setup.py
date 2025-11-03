@@ -34,7 +34,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="google-search-aj",
-    version="1.0.5",
+    version="1.0.6",
     author="Aditya Jangam",
     author_email="adityajangam25@gmail.com",
     description="Fast, lightweight Google search scraper with stealth mode",
